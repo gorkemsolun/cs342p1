@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "Message.h"
+#include "constant.h"
 
 void trimString(char* str) {
      int end = strlen(str) - 1;
@@ -20,58 +20,94 @@ void trimString(char* str) {
 }
 
 int main(int argc, char* argv[]) {
-     // TODO this should be changed after implementaion of sc,cs pipes
-     if (/* argc != 6 && argc != 4*/ argc != 2) {
+     /*
+     printf("%d\n", argc);
+     for (int i = 0; i < argc; i++) {
+          printf("argv[%d]: %s\n", i, argv[i]);
+     }
+     */
+
+     if (argc != 6 && argc != 4) {
           printf("Please provide proper amount of arguments.\n");
           return 0;
      }
 
-     int readSize, i, mq, pid, cs, sc;
-     char buffer[1024], mq_name[256], csPipeName[256], scPipeName[256];
+     int wsize;
+     int comfileIndex = -1;// TODO
+     int wsizeIndex = -1;
 
-     strcpy(mq_name, "/");
-     strcat(mq_name, argv[1]);
+     for (int i = 1; i < argc; i++) {
+          if (strcmp(argv[i], "-b") == 0 && i + 1 < argc) {
+               comfileIndex = i + 1;
+          } else if (strcmp(argv[i], "-s") == 0 && i + 1 < argc) {
+               wsizeIndex = i + 1;
+          }
+     }
 
-     mq = mq_open(mq_name, O_RDWR);
+     if (comfileIndex != -1) {
+          // Handle the COMFILE option
+          // char* comfile = argv[comfileIndex];
+          // Do something with comfile...
+     }
 
-     strcpy(buffer, "Let me connect");
-     mq_send(mq, buffer, strlen(buffer), 0);
+     if (wsizeIndex != -1) {
+          wsize = atoi(argv[wsizeIndex]);
+     } else {
+          wsize = WSIZE_DEFAULT;
+     }
 
-     mq_receive(mq, buffer, 1024, NULL);
+     char msgBuffer[MSG_SIZE], mqName[NAME_SIZE];
 
-     printf("Received success of connection: %s\n", buffer);
+     strcpy(mqName, "/");
+     strcat(mqName, argv[1]);
+
+     int mq = mq_open(mqName, O_RDWR);
+
+     strcpy(msgBuffer, "Let me connect");
+     mq_send(mq, msgBuffer, MSG_SIZE, 0);
+
+     mq_receive(mq, msgBuffer, MSG_SIZE, NULL);
+
+     printf("Received success of connection: %s\n", msgBuffer);
 
      //creation of pipes
-     pid = getpid();
-     sprintf(csPipeName, "cs%d", pid);
-     sprintf(scPipeName, "sc%d", pid);
-     cs = mkfifo(csPipeName, 0666);
-     sc = mkfifo(scPipeName, 0666);
+     int clientID = getpid();
+     char csPipeName[NAME_SIZE], scPipeName[NAME_SIZE];
+     char pipeBuffer[wsize];
+
+     sprintf(csPipeName, "cs%d", clientID);
+     sprintf(scPipeName, "sc%d", clientID);
+     int cs = mkfifo(csPipeName, 0666);
+     int sc = mkfifo(scPipeName, 0666);
 
 
-     sprintf(buffer, "%s %d %s %s 1024", mq_name, pid, csPipeName, scPipeName);
-     mq_send(mq, buffer, strlen(buffer), 0);
+     sprintf(msgBuffer, "%s %d %s %s %d", mqName, clientID, csPipeName, scPipeName, wsize);
+     mq_send(mq, msgBuffer, MSG_SIZE, 0);
 
      sc = open(scPipeName, O_WRONLY);
      cs = open(csPipeName, O_RDONLY);
 
-     readSize = read(cs, buffer, 1024);
-     buffer[readSize] = '\0';
-     printf("%s\n", buffer);
+     read(cs, pipeBuffer, wsize);
+
+     trimString(pipeBuffer);
+
+     printf("%s\n", pipeBuffer);
 
      while (1) {
           printf("Please give a line of command to execute: \n");
-          fgets(buffer, 1024, stdin);
-          write(sc, buffer, 1024);
-          trimString(buffer);
+          fgets(pipeBuffer, wsize, stdin);
+          write(sc, pipeBuffer, wsize);
+          trimString(pipeBuffer);
 
-          if (strcmp(buffer, "quit") == 0) {
+          if (strcmp(pipeBuffer, "quit") == 0) {
                break;
           }
 
-          readSize = read(cs, buffer, 1024);
-          buffer[readSize] = '\0';
-          printf("%s\n", buffer);
+          read(cs, pipeBuffer, wsize);
+
+          trimString(pipeBuffer);
+
+          printf("%s\n", pipeBuffer);
      }
 
      close(sc);
@@ -79,9 +115,6 @@ int main(int argc, char* argv[]) {
      unlink(scPipeName);
      unlink(csPipeName);
 
-     if (mq_close(mq) == -1) {
-          perror("mq_close");
-          exit(1);
-     }
+     mq_close(mq);
      return 0;
 }

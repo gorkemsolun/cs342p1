@@ -1,0 +1,3 @@
+#define NAME_SIZE 256
+#define WSIZE_DEFAULT 1024
+#define MSG_SIZE 1024
