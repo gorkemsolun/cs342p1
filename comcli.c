@@ -6,8 +6,18 @@
 #include <mqueue.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "Message.h"
 #include <string.h>
+#include "Message.h"
+
+void trimString(char* str) {
+     int end = strlen(str) - 1;
+
+     while (str[end] == ' ' || str[end] == '\t' || str[end] == '\n') {
+          end--;
+     }
+
+     str[end + 1] = '\0';
+}
 
 int main(int argc, char* argv[]) {
      // TODO this should be changed after implementaion of sc,cs pipes
@@ -16,10 +26,9 @@ int main(int argc, char* argv[]) {
           return 0;
      }
 
-     int readSize, i;
-     mqd_t mq;
-     char buffer[1024];
-     char mq_name[256];
+     int readSize, i, mq, pid, cs, sc;
+     char buffer[1024], mq_name[256], csPipeName[256], scPipeName[256];
+
      strcpy(mq_name, "/");
      strcat(mq_name, argv[1]);
 
@@ -33,12 +42,11 @@ int main(int argc, char* argv[]) {
      printf("Received success of connection: %s\n", buffer);
 
      //creation of pipes
-     pid_t pid = getpid();
-     char csPipeName[256], scPipeName[256];
+     pid = getpid();
      sprintf(csPipeName, "cs%d", pid);
      sprintf(scPipeName, "sc%d", pid);
-     int cs = mkfifo(csPipeName, 0666);
-     int sc = mkfifo(scPipeName, 0666);
+     cs = mkfifo(csPipeName, 0666);
+     sc = mkfifo(scPipeName, 0666);
 
 
      sprintf(buffer, "%s %d %s %s 1024", mq_name, pid, csPipeName, scPipeName);
@@ -47,21 +55,23 @@ int main(int argc, char* argv[]) {
      sc = open(scPipeName, O_WRONLY);
      cs = open(csPipeName, O_RDONLY);
 
-     while (1) {
-          readSize = read(cs, buffer, 1024);
-          buffer[readSize] = '\0';
-          printf("%s\n", buffer);
+     readSize = read(cs, buffer, 1024);
+     buffer[readSize] = '\0';
+     printf("%s\n", buffer);
 
+     while (1) {
           printf("Please give a line of command to execute: \n");
           fgets(buffer, 1024, stdin);
           write(sc, buffer, 1024);
+          trimString(buffer);
+
+          if (strcmp(buffer, "quit") == 0) {
+               break;
+          }
 
           readSize = read(cs, buffer, 1024);
           buffer[readSize] = '\0';
           printf("%s\n", buffer);
-
-
-          break;
      }
 
      close(sc);

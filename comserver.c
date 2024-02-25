@@ -9,15 +9,23 @@
 #include <string.h>
 #include "Message.h"
 
+void trimString(char* str) {
+     int end = strlen(str) - 1;
+
+     while (str[end] == ' ' || str[end] == '\t' || str[end] == '\n') {
+          end--;
+     }
+
+     str[end + 1] = '\0';
+}
+
 int main(int argc, char* argv[]) {
      if (argc != 2) {
           printf("Please provide proper amount of arguments.");
           return 0;
      }
 
-     int i, readSize, wsize, cs, sc, file, rd, wr;
-     mqd_t mq;
-     pid_t n, nn, clientID;
+     int i, readSize, wsize, cs, sc, file, rd, wr, n, nn, clientID, mq;
      struct mq_attr attr;
      char mq_name[256], csPipeName[256], scPipeName[256], buffer[1024], * token, * args[] = { NULL }, fileName[256];
 
@@ -41,8 +49,6 @@ int main(int argc, char* argv[]) {
           mq_receive(mq, buffer, 1024, NULL);
           printf("Received cs, sc pipes: %s\n", buffer);
 
-          // parse the message, ID of client, name of the pipes created by client, wsize
-
           token = strtok(buffer, " ");
           i = 0;
 
@@ -61,8 +67,6 @@ int main(int argc, char* argv[]) {
                token = strtok(NULL, " ");
           }
 
-          // TODO create server child with fork()
-
           n = fork();
 
           if (n == 0) { // child
@@ -72,20 +76,24 @@ int main(int argc, char* argv[]) {
                sprintf(fileName, "%d.txt", clientID);
                file = open(fileName, O_RDWR | O_CREAT, 0666);
 
-               while (1) {
-                    strcpy(buffer, "server is connected to pipes");
-                    write(cs, buffer, 1024);
+               sprintf(buffer, "server is connected to pipes of %s", buffer);
+               write(cs, buffer, strlen(buffer) + 1);
 
+               while (1) {
                     readSize = read(sc, buffer, 1024); // parsing of the commands should be changed to accomadate arguments
                     buffer[readSize] = '\0';
-                    printf("%s\n", buffer);
+                    printf("Command given by %d is: %s\n", clientID, buffer);
+                    trimString(buffer);
+
+                    if (strcmp(buffer, "quit") == 0) {
+                         printf("Client %d quits.\n", clientID);
+                         break;
+                    }
 
                     i = 0;
                     token = strtok(buffer, " ");
                     while (token != NULL) {
-                         if (token[strlen(token) - 1] == '\n') {
-                              token[strlen(token) - 1] = '\0';
-                         }
+                         trimString(token);
                          args[i++] = token;
                          token = strtok(NULL, " ");
                     }
@@ -97,31 +105,14 @@ int main(int argc, char* argv[]) {
                          dup2(file, 1); // redirect output
                          dup2(file, 2);
 
-                         if (execvp(args[0], args) == -1) {
-                              perror("execvp");
-                              exit(1);
-                         }
-
+                         execvp(args[0], args);
                     }
+
                     wait(NULL);
 
                     file = open(fileName, O_RDWR, 0666);
                     rd = read(file, buffer, sizeof(buffer));
                     wr = write(cs, buffer, sizeof(buffer));
-
-                    /*
-                    // Read from the file and write to the pipe
-                    while ((rd = read(file, buffer, sizeof(buffer))) > 0) {
-                         if (write(cs, buffer, sizeof(buffer)) != rd) {
-                              perror("write");
-                              exit(1);
-                         }
-                         printf("%s", buffer);
-                    }
-                    */
-
-
-                    break;
                }
 
                close(file);
