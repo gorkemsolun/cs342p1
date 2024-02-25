@@ -115,7 +115,8 @@ int main(int argc, char* argv[]) {
      close(cs);
      unlink(scPipeName);
      unlink(csPipeName);
-
+     remove(scPipeName);
+     remove(csPipeName);
      mq_close(mq);
      return 0;
 }

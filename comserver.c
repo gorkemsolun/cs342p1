@@ -126,6 +126,7 @@ int main(int argc, char* argv[]) {
                close(sc);
                unlink(scPipeName);
                unlink(csPipeName);
+               remove(fileName);
                return 0; // end the child
           }
      }
