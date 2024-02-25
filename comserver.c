@@ -38,16 +38,17 @@ int main(int argc, char* argv[]) {
      attr.mq_curmsgs = 0;
 
      int mq = mq_open(mqName, O_CREAT | O_RDWR, 0666, &attr);
+     int serverID = getpid();
 
      while (1) {
           mq_receive(mq, msgBuffer, MSG_SIZE, NULL);
-          printf("Received connection: %s\n", msgBuffer);
+          printf("%s\n", msgBuffer);
 
-          strcpy(msgBuffer, "You are connected");
+          sprintf(msgBuffer, "Connection established with %d.", serverID);
           mq_send(mq, msgBuffer, MSG_SIZE, 0);
 
           mq_receive(mq, msgBuffer, MSG_SIZE, NULL);
-          printf("Received cs, sc pipes: %s\n", msgBuffer);
+          printf("Received pipe names, clients ID, and wsize.\n");
 
           char* token = strtok(msgBuffer, " ");
           int i = 0;
@@ -80,13 +81,13 @@ int main(int argc, char* argv[]) {
                sprintf(fileName, "%d.txt", clientID);
                int file = open(fileName, O_RDWR | O_CREAT, 0666);
 
-               sprintf(pipeBuffer, "Comserver is connected to pipes of %d", clientID);
+               sprintf(pipeBuffer, "%d", clientID);
                write(cs, pipeBuffer, wsize);
 
                while (1) {
                     read(sc, pipeBuffer, wsize); // parsing of the commands should be changed to accomadate arguments
                     trimString(pipeBuffer);
-                    printf("Command given by %d is: %s\n", clientID, pipeBuffer);
+                    printf("Command given by %d is %s\n", clientID, pipeBuffer);
 
                     if (strcmp(pipeBuffer, "quit") == 0) {
                          printf("Client %d quits.\n", clientID);

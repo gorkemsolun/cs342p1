@@ -62,16 +62,15 @@ int main(int argc, char* argv[]) {
      strcat(mqName, argv[1]);
 
      int mq = mq_open(mqName, O_RDWR);
+     int clientID = getpid();
 
-     strcpy(msgBuffer, "Let me connect");
+     sprintf(msgBuffer, "Connection request from %d.", clientID);
      mq_send(mq, msgBuffer, MSG_SIZE, 0);
 
      mq_receive(mq, msgBuffer, MSG_SIZE, NULL);
-
-     printf("Received success of connection: %s\n", msgBuffer);
+     printf("%s\n", msgBuffer);
 
      //creation of pipes
-     int clientID = getpid();
      char csPipeName[NAME_SIZE], scPipeName[NAME_SIZE];
      char pipeBuffer[wsize];
 
@@ -88,10 +87,12 @@ int main(int argc, char* argv[]) {
      cs = open(csPipeName, O_RDONLY);
 
      read(cs, pipeBuffer, wsize);
-
-     trimString(pipeBuffer);
-
-     printf("%s\n", pipeBuffer);
+     if (atoi(pipeBuffer) == clientID) {
+          printf("Connection is succesfully established through pipes.\n");
+     } else {
+          printf("Connection is not succesfully established. Server got wrong id. Servers client id: %s, clients id: %d\n", pipeBuffer, clientID);
+          return 0;
+     }
 
      while (1) {
           printf("Please give a line of command to execute: \n");
