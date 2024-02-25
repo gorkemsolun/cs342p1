@@ -35,6 +35,7 @@ int main(int argc, char* argv[]) {
      int wsize;
      int comfileIndex = -1;// TODO
      int wsizeIndex = -1;
+     char comfile[NAME_SIZE];
 
      for (int i = 1; i < argc; i++) {
           if (strcmp(argv[i], "-b") == 0 && i + 1 < argc) {
@@ -45,9 +46,7 @@ int main(int argc, char* argv[]) {
      }
 
      if (comfileIndex != -1) {
-          // Handle the COMFILE option
-          // char* comfile = argv[comfileIndex];
-          // Do something with comfile...
+          strcpy(comfile, argv[comfileIndex]);
      }
 
      if (wsizeIndex != -1) {
@@ -72,13 +71,12 @@ int main(int argc, char* argv[]) {
 
      //creation of pipes
      char csPipeName[NAME_SIZE], scPipeName[NAME_SIZE];
-     char pipeBuffer[wsize];
+     char pipeBuffer[wsize], command[wsize];
 
      sprintf(csPipeName, "cs%d", clientID);
      sprintf(scPipeName, "sc%d", clientID);
      int cs = mkfifo(csPipeName, 0666);
      int sc = mkfifo(scPipeName, 0666);
-
 
      sprintf(msgBuffer, "%s %d %s %s %d", mqName, clientID, csPipeName, scPipeName, wsize);
      mq_send(mq, msgBuffer, MSG_SIZE, 0);
@@ -94,9 +92,31 @@ int main(int argc, char* argv[]) {
           return 0;
      }
 
+     // if batch option is specified
+     int batchFile;
+     char* batchLine;
+     if (comfileIndex != -1) {
+          batchFile = open(comfile, O_RDWR, 0666);
+          char batchFileBuffer[FILE_SIZE];
+          read(batchFile, batchFileBuffer, wsize);
+          batchLine = strtok(batchFileBuffer, "\n");
+     }
+
      while (1) {
-          printf("Please give a line of command to execute: \n");
-          fgets(pipeBuffer, wsize, stdin);
+          if (comfileIndex == -1) {
+               printf("Please give a line of command to execute: \n");
+               fgets(pipeBuffer, wsize, stdin);
+          } else {
+               if (batchLine != NULL) {
+                    strcpy(pipeBuffer, batchLine);
+                    batchLine = strtok(NULL, "\n");
+               } else {
+                    printf("Batch file is finished.\n");
+                    break;
+               }
+          }
+
+          strcpy(command, pipeBuffer);
           write(sc, pipeBuffer, wsize);
           trimString(pipeBuffer);
 
@@ -105,9 +125,8 @@ int main(int argc, char* argv[]) {
           }
 
           read(cs, pipeBuffer, wsize);
-
           trimString(pipeBuffer);
-
+          printf("Following command is executed: %s\n", command);
           printf("%s\n", pipeBuffer);
      }
 
