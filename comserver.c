@@ -19,6 +19,15 @@ void trimString(char* str) {
      str[end + 1] = '\0';
 }
 
+void removeConnections(int file, int cs, int sc, char* csPipeName, char* scPipeName, char* fileName) {
+     close(file);
+     close(cs);
+     close(sc);
+     unlink(scPipeName);
+     unlink(csPipeName);
+     remove(fileName);
+}
+
 int main(int argc, char* argv[]) {
      if (argc != 2) {
           printf("Please provide proper amount of arguments.\n");
@@ -57,11 +66,10 @@ int main(int argc, char* argv[]) {
 
           while (token != NULL) {
                if (i == 0) {
-               } else if (i == 1) {
                     clientID = atoi(token);
-               } else if (i == 2) {
+               } else if (i == 1) {
                     strcpy(csPipeName, token);
-               } else if (i == 3) {
+               } else if (i == 2) {
                     strcpy(scPipeName, token);
                } else {
                     wsize = atoi(token);
@@ -73,8 +81,8 @@ int main(int argc, char* argv[]) {
           int n = fork();
 
           if (n == 0) { // child
-               int sc = open(scPipeName, O_RDONLY);
-               int cs = open(csPipeName, O_WRONLY);
+               int sc = open(scPipeName, O_WRONLY);
+               int cs = open(csPipeName, O_RDONLY);
                char fileName[NAME_SIZE];
                char pipeBuffer[wsize];
 
@@ -82,10 +90,10 @@ int main(int argc, char* argv[]) {
                int file = open(fileName, O_RDWR | O_CREAT, 0666);
 
                sprintf(pipeBuffer, "%d", clientID);
-               write(cs, pipeBuffer, wsize);
+               write(sc, pipeBuffer, wsize);
 
                while (1) {
-                    read(sc, pipeBuffer, wsize); // parsing of the commands should be changed to accomadate arguments
+                    read(cs, pipeBuffer, wsize); // parsing of the commands should be changed to accomadate arguments
                     trimString(pipeBuffer);
                     printf("Command given by %d is %s\n", clientID, pipeBuffer);
 
@@ -93,6 +101,8 @@ int main(int argc, char* argv[]) {
                          printf("Client %d quits.\n", clientID);
                          break;
                     }
+
+                    int isCompoundCommand = 0;
 
                     int i = 0;
                     char* token = strtok(pipeBuffer, " ");
@@ -108,25 +118,19 @@ int main(int argc, char* argv[]) {
                     int nn = fork();
 
                     if (nn == 0) { // grandchild
-                         dup2(file, 1); // redirect output
-                         dup2(file, 2);
+                         dup2(file, STDOUT_FILENO); // redirect output
 
                          execvp(args[0], args);
                     }
 
                     wait(NULL);
 
-                    file = open(fileName, O_RDWR, 0666);
+                    file = open(fileName, O_RDWR, 0666);// TODO wsize 
                     read(file, pipeBuffer, wsize);
-                    write(cs, pipeBuffer, wsize);
+                    write(sc, pipeBuffer, wsize);
                }
 
-               close(file);
-               close(cs);
-               close(sc);
-               unlink(scPipeName);
-               unlink(csPipeName);
-               remove(fileName);
+               removeConnections(file, cs, sc, csPipeName, scPipeName, fileName);
                return 0; // end the child
           }
      }

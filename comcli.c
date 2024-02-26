@@ -19,6 +19,16 @@ void trimString(char* str) {
      str[end + 1] = '\0';
 }
 
+void removeConnections(int mq, int cs, int sc, char* csPipeName, char* scPipeName) {
+     close(sc);
+     close(cs);
+     unlink(scPipeName);
+     unlink(csPipeName);
+     remove(scPipeName);
+     remove(csPipeName);
+     mq_close(mq);
+}
+
 int main(int argc, char* argv[]) {
      /*
      printf("%d\n", argc);
@@ -78,13 +88,13 @@ int main(int argc, char* argv[]) {
      int cs = mkfifo(csPipeName, 0666);
      int sc = mkfifo(scPipeName, 0666);
 
-     sprintf(msgBuffer, "%s %d %s %s %d", mqName, clientID, csPipeName, scPipeName, wsize);
+     sprintf(msgBuffer, "%d %s %s %d", clientID, csPipeName, scPipeName, wsize);
      mq_send(mq, msgBuffer, MSG_SIZE, 0);
 
-     sc = open(scPipeName, O_WRONLY);
-     cs = open(csPipeName, O_RDONLY);
+     sc = open(scPipeName, O_RDONLY);
+     cs = open(csPipeName, O_WRONLY);
 
-     read(cs, pipeBuffer, wsize);
+     read(sc, pipeBuffer, wsize);
      if (atoi(pipeBuffer) == clientID) {
           printf("Connection is succesfully established through pipes.\n");
      } else {
@@ -117,25 +127,19 @@ int main(int argc, char* argv[]) {
           }
 
           strcpy(command, pipeBuffer);
-          write(sc, pipeBuffer, wsize);
+          write(cs, pipeBuffer, wsize);// TODO wsize 
           trimString(pipeBuffer);
 
           if (strcmp(pipeBuffer, "quit") == 0) {
                break;
           }
 
-          read(cs, pipeBuffer, wsize);
+          read(sc, pipeBuffer, wsize);
           trimString(pipeBuffer);
           printf("Following command is executed: %s\n", command);
           printf("%s\n", pipeBuffer);
      }
 
-     close(sc);
-     close(cs);
-     unlink(scPipeName);
-     unlink(csPipeName);
-     remove(scPipeName);
-     remove(csPipeName);
-     mq_close(mq);
+     removeConnections(mq, cs, sc, csPipeName, scPipeName);
      return 0;
 }
