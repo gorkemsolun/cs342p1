@@ -81,7 +81,7 @@ int main(int argc, char* argv[]) {
 
      //creation of pipes
      char csPipeName[NAME_SIZE], scPipeName[NAME_SIZE];
-     char pipeBuffer[wsize], command[wsize];
+     char pipeBuffer[BUFFER_SIZE], command[BUFFER_SIZE];
 
      sprintf(csPipeName, "cs%d", clientID);
      sprintf(scPipeName, "sc%d", clientID);
@@ -94,7 +94,7 @@ int main(int argc, char* argv[]) {
      sc = open(scPipeName, O_RDONLY);
      cs = open(csPipeName, O_WRONLY);
 
-     read(sc, pipeBuffer, wsize);
+     read(sc, pipeBuffer, wsize); // TODO we need a loop here 
      if (atoi(pipeBuffer) == clientID) {
           printf("Connection is succesfully established through pipes.\n");
      } else {
@@ -108,14 +108,14 @@ int main(int argc, char* argv[]) {
      if (comfileIndex != -1) {
           batchFile = open(comfile, O_RDWR, 0666);
           char batchFileBuffer[FILE_SIZE];
-          read(batchFile, batchFileBuffer, wsize);
+          read(batchFile, batchFileBuffer, BUFFER_SIZE);
           batchLine = strtok(batchFileBuffer, "\n");
      }
 
      while (1) {
           if (comfileIndex == -1) {
                printf("Please give a line of command to execute: \n");
-               fgets(pipeBuffer, wsize, stdin);
+               fgets(pipeBuffer, BUFFER_SIZE, stdin);
           } else {
                if (batchLine != NULL) {
                     strcpy(pipeBuffer, batchLine);
@@ -127,14 +127,14 @@ int main(int argc, char* argv[]) {
           }
 
           strcpy(command, pipeBuffer);
-          write(cs, pipeBuffer, wsize);// TODO wsize 
+          write(cs, pipeBuffer, BUFFER_SIZE);
           trimString(pipeBuffer);
 
           if (strcmp(pipeBuffer, "quit") == 0) {
                break;
           }
 
-          read(sc, pipeBuffer, wsize);
+          read(sc, pipeBuffer, wsize); // TODO wsize loop needed
           trimString(pipeBuffer);
           printf("Following command is executed: %s\n", command);
           printf("%s\n", pipeBuffer);

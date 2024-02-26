@@ -80,13 +80,13 @@ int main(int argc, char* argv[]) {
                char fileName[NAME_SIZE];
                sprintf(fileName, "%d.txt", clientID);
 
-               char pipeBuffer[wsize];
+               char pipeBuffer[BUFFER_SIZE];
                sprintf(pipeBuffer, "%d", clientID);
-               write(sc, pipeBuffer, wsize);
+               write(sc, pipeBuffer, wsize); // TODO WSIZE LOOP NEEDED
 
                while (1) {
                     int file = open(fileName, O_RDWR | O_CREAT, 0666);
-                    read(cs, pipeBuffer, wsize); // parsing of the commands should be changed to accomadate arguments
+                    read(cs, pipeBuffer, BUFFER_SIZE);
                     trimString(pipeBuffer);
                     printf("Command given by %d is %s\n", clientID, pipeBuffer);
 
@@ -119,7 +119,7 @@ int main(int argc, char* argv[]) {
 
                          waitpid(nn, NULL, 0);
                     } else { // compound command
-                         char c1[wsize], c2[wsize];
+                         char c1[BUFFER_SIZE], c2[BUFFER_SIZE];
                          char* token = strtok(pipeBuffer, "|");
                          int i = 0;
                          while (token != NULL) {
@@ -142,7 +142,7 @@ int main(int argc, char* argv[]) {
                               close(unnamedPipes[0]);
                               close(unnamedPipes[1]);
 
-                              char* args1[wsize];
+                              char* args1[BUFFER_SIZE];
                               char* token = strtok(c1, " ");
                               int i = 0;
                               while (token != NULL) {
@@ -157,7 +157,7 @@ int main(int argc, char* argv[]) {
                               int n2 = fork();
 
                               if (n2 == 0) {
-                                   char* args2[wsize];
+                                   char* args2[BUFFER_SIZE];
                                    char* token = strtok(c2, " ");
                                    int i = 0;
                                    while (token != NULL) {
@@ -183,8 +183,8 @@ int main(int argc, char* argv[]) {
                     }
 
                     file = open(fileName, O_RDONLY);
-                    memset(pipeBuffer, 0, wsize);
-                    read(file, pipeBuffer, wsize);
+                    memset(pipeBuffer, 0, BUFFER_SIZE);
+                    read(file, pipeBuffer, BUFFER_SIZE);
                     close(file);
                     sleep(8);
                     remove(fileName);
