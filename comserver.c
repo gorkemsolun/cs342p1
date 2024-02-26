@@ -19,15 +19,6 @@ void trimString(char* str) {
      str[end + 1] = '\0';
 }
 
-void removeConnections(int file, int cs, int sc, char* csPipeName, char* scPipeName, char* fileName) {
-     close(file);
-     close(cs);
-     close(sc);
-     unlink(scPipeName);
-     unlink(csPipeName);
-     remove(fileName);
-}
-
 int main(int argc, char* argv[]) {
      if (argc != 2) {
           printf("Please provide proper amount of arguments.\n");
@@ -48,6 +39,8 @@ int main(int argc, char* argv[]) {
 
      int mq = mq_open(mqName, O_CREAT | O_RDWR, 0666, &attr);
      int serverID = getpid();
+
+     printf("Comserver is started. Connect to it via clients.\n");
 
      while (1) {
           mq_receive(mq, msgBuffer, MSG_SIZE, NULL);
@@ -83,54 +76,125 @@ int main(int argc, char* argv[]) {
           if (n == 0) { // child
                int sc = open(scPipeName, O_WRONLY);
                int cs = open(csPipeName, O_RDONLY);
+
                char fileName[NAME_SIZE];
-               char pipeBuffer[wsize];
-
                sprintf(fileName, "%d.txt", clientID);
-               int file = open(fileName, O_RDWR | O_CREAT, 0666);
 
+               char pipeBuffer[wsize];
                sprintf(pipeBuffer, "%d", clientID);
                write(sc, pipeBuffer, wsize);
 
                while (1) {
+                    int file = open(fileName, O_RDWR | O_CREAT, 0666);
                     read(cs, pipeBuffer, wsize); // parsing of the commands should be changed to accomadate arguments
                     trimString(pipeBuffer);
                     printf("Command given by %d is %s\n", clientID, pipeBuffer);
 
                     if (strcmp(pipeBuffer, "quit") == 0) {
+                         close(file);
+                         remove(fileName);
                          printf("Client %d quits.\n", clientID);
                          break;
                     }
 
-                    int isCompoundCommand = 0;
+                    char* isCompoundCommand = strchr(pipeBuffer, '|');
 
-                    int i = 0;
-                    char* token = strtok(pipeBuffer, " ");
-                    char* args[] = { NULL };
+                    if (isCompoundCommand == NULL) { // single command
+                         char* args[MAX_ARGS_LENGTH];
+                         int i = 0;
 
-                    while (token != NULL) {
-                         trimString(token);
-                         args[i++] = token;
-                         token = strtok(NULL, " ");
+                         char* token = strtok(pipeBuffer, " ");
+                         while (token != NULL) {
+                              args[i++] = token;
+                              token = strtok(NULL, " ");
+                         }
+                         args[i] = NULL;
+
+                         int nn = fork();
+
+                         if (nn == 0) { // grandchild
+                              dup2(file, STDOUT_FILENO); // redirect output
+                              execvp(args[0], args);
+                         }
+
+                         waitpid(nn, NULL, 0);
+                    } else { // compound command
+                         char c1[wsize], c2[wsize];
+                         char* token = strtok(pipeBuffer, "|");
+                         int i = 0;
+                         while (token != NULL) {
+                              if (i == 0) {
+                                   strcpy(c1, token);
+                              } else {
+                                   strcpy(c2, token);
+                              }
+                              i++;
+                              token = strtok(NULL, "|");
+                         }
+
+                         int unnamedPipes[2];
+                         pipe(unnamedPipes);
+
+                         int n1 = fork();
+
+                         if (n1 == 0) {
+                              dup2(unnamedPipes[1], STDOUT_FILENO);
+                              close(unnamedPipes[0]);
+                              close(unnamedPipes[1]);
+
+                              char* args1[wsize];
+                              char* token = strtok(c1, " ");
+                              int i = 0;
+                              while (token != NULL) {
+                                   args1[i++] = token;
+                                   token = strtok(NULL, " ");
+                              }
+                              args1[i] = NULL;
+
+                              execvp(args1[0], args1);
+                         } else {
+
+                              int n2 = fork();
+
+                              if (n2 == 0) {
+                                   char* args2[wsize];
+                                   char* token = strtok(c2, " ");
+                                   int i = 0;
+                                   while (token != NULL) {
+                                        args2[i++] = token;
+                                        token = strtok(NULL, " ");
+                                   }
+                                   args2[i] = NULL;
+
+                                   dup2(unnamedPipes[0], STDIN_FILENO);
+                                   dup2(file, STDOUT_FILENO);
+                                   close(unnamedPipes[0]);
+                                   close(unnamedPipes[1]);
+
+                                   execvp(args2[0], args2);
+                              } else {
+                                   close(unnamedPipes[0]);
+                                   close(unnamedPipes[1]);
+
+                                   waitpid(n1, NULL, 0);
+                                   waitpid(n2, NULL, 0);
+                              }
+                         }
                     }
-                    args[i] = NULL;
 
-                    int nn = fork();
-
-                    if (nn == 0) { // grandchild
-                         dup2(file, STDOUT_FILENO); // redirect output
-
-                         execvp(args[0], args);
-                    }
-
-                    wait(NULL);
-
-                    file = open(fileName, O_RDWR, 0666);// TODO wsize 
+                    file = open(fileName, O_RDONLY);
+                    memset(pipeBuffer, 0, wsize);
                     read(file, pipeBuffer, wsize);
+                    close(file);
+                    sleep(8);
+                    remove(fileName);
                     write(sc, pipeBuffer, wsize);
                }
 
-               removeConnections(file, cs, sc, csPipeName, scPipeName, fileName);
+               close(cs);
+               close(sc);
+               unlink(scPipeName);
+               unlink(csPipeName);
                return 0; // end the child
           }
      }
