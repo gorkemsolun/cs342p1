@@ -5,9 +5,17 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <unistd.h>
+#include <sys/types.h>
 #include <string.h>
+#include <signal.h>
+#include <sys/msg.h> 
 #include "constant.h"
+
+int childrenID[MAX_CLIENT_SIZE] = { [0 ... MAX_CLIENT_SIZE - 1] = -1 };
+int clientsID[MAX_CLIENT_SIZE] = { [0 ... MAX_CLIENT_SIZE - 1] = -1 };
+int currentChildrenCount = 0;
+int mq;
+int serverID;
 
 void trimString(char* str) {
      int end = strlen(str) - 1;
@@ -17,6 +25,29 @@ void trimString(char* str) {
      }
 
      str[end + 1] = '\0';
+}
+
+void signal_handler(int sig) {
+     if (sig == SIGTERM) {
+          if (getpid() == serverID) {
+               msgctl(mq, IPC_RMID, NULL);
+
+               for (int i = 0; clientsID[i] != -1 && i < MAX_CLIENT_SIZE; i++) {
+                    kill(clientsID[i], SIGTERM);
+                    char clientfileName[NAME_SIZE];
+                    sprintf(clientfileName, "%d.txt", clientsID[i]);
+                    remove(clientfileName);
+               }
+
+               for (int i = 0; childrenID[i] != -1 && i < MAX_CLIENT_SIZE; i++) {
+                    kill(childrenID[i], SIGTERM);
+
+               }
+          }
+
+          printf("Process %d received termination signal.\n", getpid());
+          exit(0);
+     }
 }
 
 int main(int argc, char* argv[]) {
@@ -37,12 +68,21 @@ int main(int argc, char* argv[]) {
      attr.mq_msgsize = 1024;
      attr.mq_curmsgs = 0;
 
-     int mq = mq_open(mqName, O_CREAT | O_RDWR, 0666, &attr);
-     int serverID = getpid();
+     mq = mq_open(mqName, O_CREAT | O_RDWR, 0666, &attr);
+
+     serverID = getpid();
+     signal(SIGTERM, signal_handler);
 
      printf("Comserver is started. Connect to it via clients.\n");
 
      while (1) {
+          // connection should be refused if children count > 0;
+          if (currentChildrenCount == MAX_CLIENT_SIZE) {
+               sleep(30);
+               printf("Server is full, clients cannot connect.\n");
+               continue;
+          }
+
           mq_receive(mq, msgBuffer, MSG_SIZE, NULL);
           printf("%s\n", msgBuffer);
 
@@ -73,6 +113,20 @@ int main(int argc, char* argv[]) {
 
           int n = fork();
 
+          // id registration
+          int childIndex = -1;
+          for (int i = 0; i < MAX_CLIENT_SIZE; i++) {
+               if (childrenID[i] == -1) {
+                    childIndex = i;
+                    break;
+               }
+          }
+
+          if (childIndex != -1) {
+               childrenID[childIndex] = n;
+               clientsID[childIndex] = clientID;
+          }
+
           if (n == 0) { // child
                int sc = open(scPipeName, O_WRONLY);
                int cs = open(csPipeName, O_RDONLY);
@@ -91,7 +145,12 @@ int main(int argc, char* argv[]) {
                     trimString(pipeBuffer);
                     printf("Command given by %d is %s\n", clientID, pipeBuffer);
 
-                    if (strcmp(pipeBuffer, "quit") == 0) {
+                    if (strcmp(pipeBuffer, "quitall") == 0) { // killing all
+                         kill(serverID, SIGTERM);
+                         exit(0);
+                    }
+
+                    if (strcmp(pipeBuffer, "quit") == 0) { // ending this child
                          close(file);
                          remove(fileName);
                          printf("Client %d quits.\n", clientID);
@@ -187,7 +246,6 @@ int main(int argc, char* argv[]) {
                     memset(pipeBuffer, 0, BUFFER_SIZE);
                     read(file, pipeBuffer, BUFFER_SIZE);
                     close(file);
-                    sleep(8);
                     remove(fileName);
                     write(sc, pipeBuffer, wsize);
                }
@@ -198,6 +256,13 @@ int main(int argc, char* argv[]) {
                unlink(csPipeName);
                return 0; // end the child
           }
+
+          /* TODO THERE WiLL BE A FiLE OR PiPE TO COMMUNiCATE WiTH parent to make this possible
+          childrenID[childIndex] = -1;
+          clientsID[childIndex] = -1;
+          currentChildrenCount--;
+          */
+
      }
 
      mq_close(mq);
