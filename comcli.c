@@ -66,9 +66,14 @@ int main(int argc, char* argv[]) {
           wsize = WSIZE_DEFAULT;
      }
 
+     if (wsize < 1) {
+          printf("Wsize should be at least 1.\n");
+          return 0;
+     }
+
      char msgBuffer[MSG_SIZE], mqName[NAME_SIZE];
 
-     strcpy(mqName, "/");
+     printf("A message queue name should start with '/'.\n");
      strcat(mqName, argv[1]);
 
      mq = mq_open(mqName, O_RDWR);

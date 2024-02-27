@@ -1,7 +1,7 @@
 #define NAME_SIZE 256
 #define WSIZE_DEFAULT 1
-#define MSG_SIZE 1024
+#define MSG_SIZE 16384
 #define FILE_SIZE 65536
 #define MAX_ARGS_LENGTH 8
 #define BUFFER_SIZE 32768
-#define MAX_CLIENT_SIZE 8
+#define MAX_CLIENT_SIZE 5

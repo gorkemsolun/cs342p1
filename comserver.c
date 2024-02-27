@@ -62,10 +62,9 @@ int main(int argc, char* argv[]) {
 
      char msgBuffer[MSG_SIZE];
      struct mq_attr attr;
-
      attr.mq_flags = 0;
-     attr.mq_maxmsg = 10;
-     attr.mq_msgsize = 1024;
+     attr.mq_maxmsg = MSG_SIZE;
+     attr.mq_msgsize = MSG_SIZE;
      attr.mq_curmsgs = 0;
 
      mq = mq_open(mqName, O_CREAT | O_RDWR, 0666, &attr);
@@ -246,8 +245,10 @@ int main(int argc, char* argv[]) {
                     file = open(fileName, O_RDONLY);
                     memset(pipeBuffer, 0, BUFFER_SIZE);
                     read(file, pipeBuffer, BUFFER_SIZE);
+
                     close(file);
                     remove(fileName);
+
                     write(sc, pipeBuffer, wsize);
                }
 
@@ -258,7 +259,7 @@ int main(int argc, char* argv[]) {
                return 0; // end the child
           }
 
-          /* TODO THERE WiLL BE A FiLE OR PiPE TO COMMUNiCATE WiTH parent to make this possible
+          /* TODO THERE WiLL BE A FiLE OR PiPE TO COMMUNiCATE WiTH parent to make this possible,
           childrenID[childIndex] = -1;
           clientsID[childIndex] = -1;
           currentChildrenCount--;
