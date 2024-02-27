@@ -38,7 +38,7 @@ void signal_handler(int sig) {
 }
 
 int main(int argc, char* argv[]) {
-     if (argc != 6 && argc != 4) {
+     if (argc != 6 && argc != 4 && argc != 2) {
           printf("Please provide proper amount of arguments.\n");
           return 0;
      }
@@ -94,7 +94,8 @@ int main(int argc, char* argv[]) {
      sc = open(scPipeName, O_RDONLY);
      cs = open(csPipeName, O_WRONLY);
 
-     read(sc, pipeBuffer, wsize); // TODO we need a loop here 
+     for(int i = sizeof(pipeBuffer); i > 0; i -= wsize)
+        read(sc, pipeBuffer, wsize); // TODO we need a loop here
      if (atoi(pipeBuffer) == clientID) {
           printf("Connection is succesfully established through pipes.\n");
      } else {

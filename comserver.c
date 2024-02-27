@@ -136,7 +136,8 @@ int main(int argc, char* argv[]) {
 
                char pipeBuffer[BUFFER_SIZE];
                sprintf(pipeBuffer, "%d", clientID);
-               write(sc, pipeBuffer, wsize); // TODO WSIZE LOOP NEEDED
+              for(int i = sizeof(pipeBuffer); i > 0; i -= wsize)
+                write(sc, pipeBuffer, wsize); // TODO WSIZE LOOP NEEDED
 
                while (1) {
                     int file = open(fileName, O_RDWR | O_CREAT, 0666);
