@@ -98,8 +98,10 @@ int main(int argc, char* argv[]) {
 
      sc = open(scPipeName, O_RDONLY);
      cs = open(csPipeName, O_WRONLY);
-    for(int i = sizeof(pipeBuffer); i > 0; i -= wsize)
-        read(sc, pipeBuffer, wsize); // TODO we need a loop here
+     for (int i = sizeof(pipeBuffer); i > 0; i -= wsize) {
+          read(sc, pipeBuffer, wsize);
+     }
+
      if (atoi(pipeBuffer) == clientID) {
           printf("Connection is succesfully established through pipes.\n");
      } else {
@@ -141,8 +143,10 @@ int main(int argc, char* argv[]) {
           if (strcmp(pipeBuffer, "quit") == 0) {
                break;
           }
-         for(int i = sizeof(pipeBuffer); i > 0; i -= wsize)
-            read(sc, pipeBuffer, wsize); // TODO wsize loop needed
+          for (int i = sizeof(pipeBuffer); i > 0; i -= wsize) {
+               read(sc, pipeBuffer, wsize);
+          }
+
           trimString(pipeBuffer);
           printf("Following command is executed: %s\n", command);
           printf("%s\n", pipeBuffer);
