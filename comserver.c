@@ -57,22 +57,19 @@ int main(int argc, char* argv[]) {
      }
 
      char mqName[NAME_SIZE];
-     strcpy(mqName, "/");
-     strcat(mqName, argv[1]);
+     strcpy(mqName, argv[1]);
+     trimString(mqName);
+     mq = mq_open(mqName, O_CREAT | O_RDWR, 0666, NULL);
 
-     char msgBuffer[MSG_SIZE];
      struct mq_attr attr;
-     attr.mq_flags = 0;
-     attr.mq_maxmsg = MSG_SIZE;
-     attr.mq_msgsize = MSG_SIZE;
-     attr.mq_curmsgs = 0;
-
-     mq = mq_open(mqName, O_CREAT | O_RDWR, 0666, &attr);
+     mq_getattr(mq, &attr);
+     int MSG_SIZE = attr.mq_msgsize;
+     char msgBuffer[MSG_SIZE];
 
      serverID = getpid();
-     signal(SIGTERM, signal_handler);
+     printf("Comserver(%d) is started. Connect to it via clients. Message queue name is %s.\n", serverID, mqName);
 
-     printf("Comserver is started. Connect to it via clients.\n");
+     signal(SIGTERM, signal_handler);
 
      while (1) {
           // connection should be refused if children count > 0;

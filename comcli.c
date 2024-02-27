@@ -71,12 +71,16 @@ int main(int argc, char* argv[]) {
           return 0;
      }
 
-     char msgBuffer[MSG_SIZE], mqName[NAME_SIZE];
-
-     printf("A message queue name should start with '/'.\n");
-     strcat(mqName, argv[1]);
-
+     char mqName[NAME_SIZE];
+     strcpy(mqName, argv[1]);
+     trimString(mqName);
      mq = mq_open(mqName, O_RDWR);
+
+     struct mq_attr attr;
+     mq_getattr(mq, &attr);
+     int MSG_SIZE = attr.mq_msgsize;
+     char msgBuffer[MSG_SIZE];
+
      int clientID = getpid();
 
      sprintf(msgBuffer, "Connection request from %d.", clientID);
