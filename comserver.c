@@ -82,8 +82,9 @@ int main(int argc, char* argv[]) {
 
                char pipeBuffer[BUFFER_SIZE];
                sprintf(pipeBuffer, "%d", clientID);
+
               for(int i = sizeof(pipeBuffer); i > 0; i -= wsize)
-                write(sc, pipeBuffer, wsize); // TODO WSIZE LOOP NEEDED
+                  write(sc, pipeBuffer, wsize); // TODO WSIZE LOOP NEEDED
 
                while (1) {
                     int file = open(fileName, O_RDWR | O_CREAT, 0666);
@@ -189,7 +190,8 @@ int main(int argc, char* argv[]) {
                     close(file);
                     sleep(8);
                     remove(fileName);
-                    write(sc, pipeBuffer, wsize);
+                   for(int i = sizeof(pipeBuffer); i > 0; i -= wsize)
+                        write(sc, pipeBuffer, wsize);
                }
 
                close(cs);
