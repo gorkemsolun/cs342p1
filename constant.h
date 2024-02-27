@@ -4,3 +4,4 @@
 #define FILE_SIZE 65536
 #define MAX_ARGS_LENGTH 8
 #define BUFFER_SIZE 32768
+#define MAX_CLIENT_SIZE 8
