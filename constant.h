@@ -1,5 +1,5 @@
 #define NAME_SIZE 256
-#define WSIZE_DEFAULT 1024
+#define WSIZE_DEFAULT 1
 #define MSG_SIZE 1024
 #define FILE_SIZE 65536
 #define MAX_ARGS_LENGTH 8

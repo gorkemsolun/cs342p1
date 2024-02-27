@@ -90,7 +90,6 @@ int main(int argc, char* argv[]) {
           mq_send(mq, msgBuffer, MSG_SIZE, 0);
 
           mq_receive(mq, msgBuffer, MSG_SIZE, NULL);
-          printf("Received pipe names, clients ID, and wsize.\n");
 
           char* token = strtok(msgBuffer, " ");
           int i = 0;
@@ -110,6 +109,8 @@ int main(int argc, char* argv[]) {
                i++;
                token = strtok(NULL, " ");
           }
+
+          printf("Received pipe names, clients ID(%d), and wsize(%d).\n", clientID, wsize);
 
           int n = fork();
 
