@@ -58,6 +58,7 @@ void signal_handler(int sig) {
      }
 }
 
+// add header to the message
 void addHeader2Message(char* message, int length, int type) {
      memmove(message + 8, message, length); // shift the message to the right by 8
      memset(message, 0, 8);
@@ -87,21 +88,23 @@ void removeHeaderFromMessage(char* message, int* length, int* type) {
 }
 
 int main(int argc, char* argv[]) {
+     // check for the proper amount of arguments
      if (argc != 2) {
           printf("Please provide proper amount of arguments.\n");
           return 0;
      }
-
      if (argv[1][0] != '/') {
           printf("Please provide a proper message queue name.\n");
           return 0;
      }
 
+     // open the message queue
      char mqName[NAME_SIZE];
      strcpy(mqName, argv[1]);
      trimString(mqName);
      mq = mq_open(mqName, O_CREAT | O_RDWR, 0666, NULL);
 
+     // get the message queue attributes
      struct mq_attr attr;
      mq_getattr(mq, &attr);
      int MSG_SIZE = attr.mq_msgsize;
@@ -111,7 +114,7 @@ int main(int argc, char* argv[]) {
      serverID = getpid();
      printf("Comserver(%d) is started. Connect to it via clients. Message queue name is %s.\n", serverID, mqName);
 
-     signal(SIGTERM, signal_handler);
+     signal(SIGTERM, signal_handler); // signal handler for termination
 
      // server loop
      while (1) {
