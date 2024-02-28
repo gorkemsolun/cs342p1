@@ -82,6 +82,11 @@ int main(int argc, char* argv[]) {
           return 0;
      }
 
+     if (argv[1][0] != '/') {
+          printf("Please provide a proper message queue name.\n");
+          return 0;
+     }
+
      char mqName[NAME_SIZE];
      strcpy(mqName, argv[1]);
      trimString(mqName);
@@ -108,6 +113,24 @@ int main(int argc, char* argv[]) {
           printf("Received connection request.\n");
           printf("%s\n", msgBuffer);
 
+          int clientRemoveFile = open("clientsToRemove.txt", O_RDONLY);
+          if (clientRemoveFile != -1) {
+               char clientToRemove[NAME_SIZE];
+               int clientIDToRemove;
+               while (read(clientRemoveFile, clientToRemove, NAME_SIZE) > 0) {
+                    clientIDToRemove = atoi(clientToRemove);
+                    for (int i = 0; i < MAX_CLIENT_SIZE; i++) {
+                         if (clientsID[i] == clientIDToRemove) {
+                              printf("Client %d is removed.\n", clientIDToRemove);
+                              childrenID[i] = -1;
+                              clientsID[i] = -1;
+                              currentChildrenCount--;
+                         }
+                    }
+               }
+               remove("clientsToRemove.txt");
+          }
+       
           if (currentChildrenCount == MAX_CLIENT_SIZE) {
                sprintf(msgBuffer, "Server(%d) is full, clients cannot connect.", serverID);
                addHeader2Message(msgBuffer, strlen(msgBuffer), CONNECTION_REPLY_FAIL);
@@ -188,7 +211,7 @@ int main(int argc, char* argv[]) {
                     printf("Command given by %d is %s\n", clientID, pipeBuffer);
 
                     if (bufferType == QUIT_REQUEST || bufferType == QUIT_ALL_REQUEST) { // quits handled here
-                         sprintf(pipeBuffer, "Server is terminating the connection with you(%d).", clientID);
+                         // sprintf(pipeBuffer, "Server is terminating the connection with you(%d).", clientID);
 
                          // addHeader2Message(pipeBuffer, strlen(pipeBuffer), QUIT_REPLY);
                          // int remaining = strlen(pipeBuffer);
@@ -311,20 +334,18 @@ int main(int argc, char* argv[]) {
                     }
                }
 
+               // add here clients to be removed
+               int file = open("clientsToRemove.txt", O_RDWR | O_CREAT, 0666);
+               dprintf(file, "%d\n", clientsID[childIndex]);
+               close(file);
+
                close(cs);
                close(sc);
                unlink(scPipeName);
                unlink(csPipeName);
                return 0; // end the child
+               }
           }
-
-          /* TODO THERE WiLL BE A FiLE OR PiPE TO COMMUNiCATE WiTH parent to make this possible,
-          childrenID[childIndex] = -1;
-          clientsID[childIndex] = -1;
-          currentChildrenCount--;
-          */
-
-     }
 
      mq_close(mq);
      return 0;
