@@ -1,3 +1,9 @@
+/*
+Görkem Kadir Solun 22003214
+Murat Çağrı Kara 22102505
+*/
+
+// Constants
 #define NAME_SIZE 256
 #define WSIZE_DEFAULT 1
 #define FILE_SIZE 65536
@@ -5,6 +11,8 @@
 #define BUFFER_SIZE 65536
 #define MAX_CLIENT_SIZE 5
 
+
+// Message types
 #define CONNECTION_REQUEST 0
 #define CONNECTION_REPLY_SUCCESS 1
 #define CONNECTION_REPLY_FAIL 2

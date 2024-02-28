@@ -1,3 +1,8 @@
+/*
+Görkem Kadir Solun 22003214
+Murat Çağrı Kara 22102505
+*/
+
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -200,7 +205,6 @@ int main(int argc, char* argv[]) {
           bufferLength = overflowCheck4Header(pipeBuffer[0]) + (overflowCheck4Header(pipeBuffer[1]) << 8)
                + (overflowCheck4Header(pipeBuffer[2]) << 16) + (overflowCheck4Header(pipeBuffer[3]) << 24);
           bufferType = pipeBuffer[4];
-          printf("Buffer length: %d\n", bufferLength);
 
           if (bufferType != COMMAND_LINE_RESULT) { // this may be redundant
                printf("Server returned wrong type of message. Expected: %d, got: %d\n", COMMAND_LINE_RESULT, bufferType);

@@ -1,3 +1,8 @@
+/*
+Görkem Kadir Solun 22003214
+Murat Çağrı Kara 22102505
+*/
+
 #include <fcntl.h>
 #include <mqueue.h>
 #include <stdio.h>
