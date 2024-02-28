@@ -148,7 +148,7 @@ int main(int argc, char* argv[]) {
           }
 
           // Connection request handling
-          if (currentChildrenCount == MAX_CLIENT_SIZE) {
+          if (currentChildrenCount >= MAX_CLIENT_SIZE) {
                sprintf(msgBuffer, "Server(%d) is full, clients cannot connect.", serverID);
                addHeader2Message(msgBuffer, strlen(msgBuffer), CONNECTION_REPLY_FAIL);
                mq_send(mq, msgBuffer, MSG_SIZE, 0);
