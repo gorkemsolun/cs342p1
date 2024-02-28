@@ -192,7 +192,7 @@ int main(int argc, char* argv[]) {
                     batchLine = strtok(NULL, "\n");
                } else {
                     printf("Batch file is finished.\n");
-                    break;
+                    strcpy(pipeBuffer, "quit"); // if the batch file is finished, quit the client with quit command
                }
           }
           trimString(pipeBuffer);
