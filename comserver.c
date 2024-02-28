@@ -159,6 +159,7 @@ int main(int argc, char* argv[]) {
                sprintf(msgBuffer, "Connection established with %d (code %d).", serverID, CONNECTION_REPLY_SUCCESS);
                addHeader2Message(msgBuffer, strlen(msgBuffer), CONNECTION_REPLY_SUCCESS);
                mq_send(mq, msgBuffer, MSG_SIZE, 0);
+               currentChildrenCount++;
           }
 
           // receiving the registration message
