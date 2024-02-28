@@ -140,6 +140,7 @@ int main(int argc, char* argv[]) {
      for (int i = sizeof(pipeBuffer); i > 0; i -= wsize) {
           read(sc, pipeBuffer, wsize);
      }
+     removeHeaderFromMessage(pipeBuffer, &bufferLength, &bufferType);
 
      if (atoi(pipeBuffer) == clientID) {
           printf("Connection is succesfully established through pipes.\n");
@@ -176,6 +177,7 @@ int main(int argc, char* argv[]) {
           }
 
           strcpy(command, pipeBuffer);
+          addHeader2Message(pipeBuffer, strlen(pipeBuffer), COMMAND_LINE_REQUEST);
           write(cs, pipeBuffer, BUFFER_SIZE);
           trimString(pipeBuffer);
 
@@ -185,6 +187,7 @@ int main(int argc, char* argv[]) {
           for (int i = sizeof(pipeBuffer); i > 0; i -= wsize) {
                read(sc, pipeBuffer, wsize);
           }
+          removeHeaderFromMessage(pipeBuffer, &bufferLength, &bufferType);
 
           trimString(pipeBuffer);
           printf("Following command is executed: %s\n", command);

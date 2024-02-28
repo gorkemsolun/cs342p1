@@ -173,7 +173,7 @@ int main(int argc, char* argv[]) {
 
                char pipeBuffer[BUFFER_SIZE];
                sprintf(pipeBuffer, "%d", clientID);
-
+               addHeader2Message(pipeBuffer, strlen(pipeBuffer), CONNECTION_REPLY_SUCCESS);
                for (int i = sizeof(pipeBuffer); i > 0; i -= wsize) {
                     write(sc, pipeBuffer, wsize);
                }
@@ -181,6 +181,7 @@ int main(int argc, char* argv[]) {
                while (1) {
                     int file = open(fileName, O_RDWR | O_CREAT, 0666);
                     read(cs, pipeBuffer, BUFFER_SIZE);
+                    removeHeaderFromMessage(pipeBuffer, &bufferLength, &bufferType);
                     trimString(pipeBuffer);
                     printf("Command given by %d is %s\n", clientID, pipeBuffer);
 
@@ -287,10 +288,10 @@ int main(int argc, char* argv[]) {
 
                     close(file);
                     remove(fileName);
+                    addHeader2Message(pipeBuffer, strlen(pipeBuffer), COMMAND_LINE_RESULT);
                     for (int i = sizeof(pipeBuffer); i > 0; i -= wsize) {
                          write(sc, pipeBuffer, wsize);
                     }
-
                }
 
                close(cs);
