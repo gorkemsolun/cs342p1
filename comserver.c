@@ -16,12 +16,14 @@ Murat Çağrı Kara 22102505
 #include <sys/msg.h> 
 #include "constant.h"
 
+// Global variables
 int childrenID[MAX_CLIENT_SIZE] = { [0 ... MAX_CLIENT_SIZE - 1] = -1 };
 int clientsID[MAX_CLIENT_SIZE] = { [0 ... MAX_CLIENT_SIZE - 1] = -1 };
 int currentChildrenCount = 0;
 int mq;
 int serverID;
 
+// trim the string from the end
 void trimString(char* str) {
      int end = strlen(str) - 1;
      while (str[end] == ' ' || str[end] == '\t' || str[end] == '\n') {
@@ -32,6 +34,7 @@ void trimString(char* str) {
 
 void signal_handler(int sig) {
      if (sig == SIGTERM) {
+          // remove the message queue and the files of the clients and children if the server is terminated
           if (getpid() == serverID) {
                msgctl(mq, IPC_RMID, NULL);
 
@@ -46,6 +49,8 @@ void signal_handler(int sig) {
                     kill(childrenID[i], SIGTERM);
 
                }
+
+               remove(CLIENT_REMOVE_FILE_NAME);
           }
 
           printf("Process %d received termination signal.\n", getpid());
@@ -63,6 +68,7 @@ void addHeader2Message(char* message, int length, int type) {
      message[4] = type; // last 3 bytes are padding
 }
 
+// check for overflow in the header values, char can hold -128 to 127
 int overflowCheck4Header(int value) {
      if (value < 0) {
           value += 256;
@@ -70,6 +76,7 @@ int overflowCheck4Header(int value) {
      return value;
 }
 
+// remove the header from the message
 void removeHeaderFromMessage(char* message, int* length, int* type) {
      *length = overflowCheck4Header(message[0]) + (overflowCheck4Header(message[1]) << 8)
           + (overflowCheck4Header(message[2]) << 16) + (overflowCheck4Header(message[3]) << 24);
@@ -106,16 +113,20 @@ int main(int argc, char* argv[]) {
 
      signal(SIGTERM, signal_handler);
 
+     // server loop
      while (1) {
+
+          // receiving the connection request
           mq_receive(mq, msgBuffer, MSG_SIZE, NULL);
           removeHeaderFromMessage(msgBuffer, &bufferLength, &bufferType);
           if (bufferType != CONNECTION_REQUEST) {
-               printf("Received message is not a connection request.\n");
+               printf("Received message is not a connection request(code %d).\n", bufferType);
                continue;
           }
-          printf("Received connection request.\n");
+          printf("Received connection request(code %d).\n", bufferType);
           printf("%s\n", msgBuffer);
 
+          // remove clients from the list of clients to be removed
           int clientRemoveFile = open(CLIENT_REMOVE_FILE_NAME, O_RDONLY);
           if (clientRemoveFile != -1) {
                char clientToRemove[NAME_SIZE];
@@ -124,7 +135,6 @@ int main(int argc, char* argv[]) {
                     clientIDToRemove = atoi(clientToRemove);
                     for (int i = 0; i < MAX_CLIENT_SIZE; i++) {
                          if (clientsID[i] == clientIDToRemove) {
-                              printf("Client %d is removed.\n", clientIDToRemove);
                               childrenID[i] = -1;
                               clientsID[i] = -1;
                               currentChildrenCount--;
@@ -134,26 +144,29 @@ int main(int argc, char* argv[]) {
                remove(CLIENT_REMOVE_FILE_NAME);
           }
 
+          // Connection request handling
           if (currentChildrenCount == MAX_CLIENT_SIZE) {
                sprintf(msgBuffer, "Server(%d) is full, clients cannot connect.", serverID);
                addHeader2Message(msgBuffer, strlen(msgBuffer), CONNECTION_REPLY_FAIL);
                mq_send(mq, msgBuffer, MSG_SIZE, 0);
-               printf("Server is full, clients cannot connect.\n");
+               printf("Server is full, clients cannot connect. Try 30 seconds later.\n");
                sleep(30);
                continue;
           } else {
-               sprintf(msgBuffer, "Connection established with %d.", serverID);
+               sprintf(msgBuffer, "Connection established with %d (code %d).", serverID, CONNECTION_REPLY_SUCCESS);
                addHeader2Message(msgBuffer, strlen(msgBuffer), CONNECTION_REPLY_SUCCESS);
                mq_send(mq, msgBuffer, MSG_SIZE, 0);
           }
 
+          // receiving the registration message
           mq_receive(mq, msgBuffer, MSG_SIZE, NULL);
           removeHeaderFromMessage(msgBuffer, &bufferLength, &bufferType);
           if (bufferType != CONNECTION_REGISTER) {
-               printf("Received message is not a connection register.\n");
+               printf("Received message is not a connection register (code %d).\n", bufferType);
                continue;
           }
 
+          // parsing the registration message to get the clientID, csPipeName, scPipeName, and wsize
           char* token = strtok(msgBuffer, " ");
           int i = 0;
           int clientID, wsize;
@@ -173,13 +186,13 @@ int main(int argc, char* argv[]) {
                token = strtok(NULL, " ");
           }
 
-          printf("Received pipe names, clients ID(%d), and wsize(%d).\n", clientID, wsize);
+          printf("Received pipe names, clients ID(%d), and wsize(%d) (code %d).\n", clientID, wsize, bufferType);
           printf("Please be careful while entering commands, \nit may break the system if they are WRONG.\n");
           printf("Please be careful while entering commands long output, \nit may break the system if the buffer SIZE is NOT ENOUGH.\n");
 
           int n = fork();
 
-          // id registration
+          // id registration of children
           int childIndex = -1;
           for (int i = 0; i < MAX_CLIENT_SIZE; i++) {
                if (childrenID[i] == -1) {
@@ -193,27 +206,38 @@ int main(int argc, char* argv[]) {
                clientsID[childIndex] = clientID;
           }
 
-          if (n == 0) { // child
+          // child process
+          if (n == 0) {
+               // opening the pipes
                int sc = open(scPipeName, O_WRONLY);
                int cs = open(csPipeName, O_RDONLY);
 
+               //prepare the file name
                char fileName[NAME_SIZE];
                sprintf(fileName, "%d.txt", clientID);
 
+               // sending the connection success message to the client, note that this is only the succes message not the actual command line result
                char pipeBuffer[BUFFER_SIZE];
-               sprintf(pipeBuffer, "%d", clientID);
+               sprintf(pipeBuffer, "%d", clientID); // this is just to check if the connection is successful, we send the client id to confirm the connection
                addHeader2Message(pipeBuffer, strlen(pipeBuffer), CONNECTION_REPLY_SUCCESS);
-               write(sc, pipeBuffer, MSG_SIZE); // this is just to check if the connection is successful
+               write(sc, pipeBuffer, MSG_SIZE);
 
+               // command handling, child process loop
                while (1) {
+                    // prepare the result file
                     int file = open(fileName, O_RDWR | O_CREAT, 0666);
+
+                    // read the command from the client
                     read(cs, pipeBuffer, BUFFER_SIZE);
                     removeHeaderFromMessage(pipeBuffer, &bufferLength, &bufferType);
                     trimString(pipeBuffer);
-                    printf("Command given by %d is %s(code %d)\n", clientID, pipeBuffer, bufferType);
+                    if (atoi(pipeBuffer) != clientID) { // This is for the case that the client receives quitall command from another client
+                         printf("Command given by %d is %s(code %d)\n", clientID, pipeBuffer, bufferType);
+                    }
 
-                    if (bufferType == QUIT_REQUEST || bufferType == QUIT_ALL_REQUEST) { // quits handled here
 
+                    // quit handling
+                    if (bufferType == QUIT_REQUEST || bufferType == QUIT_ALL_REQUEST) {
                          if (bufferType == QUIT_ALL_REQUEST) { // killing all
                               kill(serverID, SIGTERM);
                               exit(0);
@@ -227,12 +251,14 @@ int main(int argc, char* argv[]) {
                          }
                     }
 
+                    // compound command handling
                     char* isCompoundCommand = strchr(pipeBuffer, '|');
 
-                    if (isCompoundCommand == NULL) { // single command
+                    // single command
+                    if (isCompoundCommand == NULL) {
+                         // split the command into arguments
                          char* args[MAX_ARGS_LENGTH];
                          int i = 0;
-
                          char* token = strtok(pipeBuffer, " ");
                          while (token != NULL) {
                               args[i++] = token;
@@ -243,12 +269,15 @@ int main(int argc, char* argv[]) {
                          int nn = fork();
 
                          if (nn == 0) { // grandchild
-                              dup2(file, STDOUT_FILENO);
-                              execvp(args[0], args);
+                              dup2(file, STDOUT_FILENO); // write to the file
+                              execvp(args[0], args); // execute the command
                          }
 
                          waitpid(nn, NULL, 0);
-                    } else { // compound command
+                    }
+                    // compound command
+                    else {
+                         // split the compound command into two
                          char c1[BUFFER_SIZE], c2[BUFFER_SIZE];
                          char* token = strtok(pipeBuffer, "|");
                          int i = 0;
@@ -267,12 +296,12 @@ int main(int argc, char* argv[]) {
 
                          int n1 = fork();
 
-                         if (n1 == 0) {
-                              dup2(unnamedPipes[1], STDOUT_FILENO);
+                         if (n1 == 0) { // grandchild 1
+                              dup2(unnamedPipes[1], STDOUT_FILENO); // write to the pipe
                               close(unnamedPipes[0]);
                               close(unnamedPipes[1]);
 
-                              char* args1[BUFFER_SIZE];
+                              char* args1[MAX_ARGS_LENGTH];
                               char* token = strtok(c1, " ");
                               int i = 0;
                               while (token != NULL) {
@@ -281,13 +310,13 @@ int main(int argc, char* argv[]) {
                               }
                               args1[i] = NULL;
 
-                              execvp(args1[0], args1);
+                              execvp(args1[0], args1); // execute the first command
                          } else {
 
                               int n2 = fork();
 
-                              if (n2 == 0) {
-                                   char* args2[BUFFER_SIZE];
+                              if (n2 == 0) { // grandchild 2
+                                   char* args2[MAX_ARGS_LENGTH];
                                    char* token = strtok(c2, " ");
                                    int i = 0;
                                    while (token != NULL) {
@@ -296,12 +325,12 @@ int main(int argc, char* argv[]) {
                                    }
                                    args2[i] = NULL;
 
-                                   dup2(unnamedPipes[0], STDIN_FILENO);
-                                   dup2(file, STDOUT_FILENO);
+                                   dup2(unnamedPipes[0], STDIN_FILENO); // read from the pipe
+                                   dup2(file, STDOUT_FILENO);        // write to the file
                                    close(unnamedPipes[0]);
                                    close(unnamedPipes[1]);
 
-                                   execvp(args2[0], args2);
+                                   execvp(args2[0], args2); // execute the second command
                               } else {
                                    close(unnamedPipes[0]);
                                    close(unnamedPipes[1]);
@@ -310,8 +339,9 @@ int main(int argc, char* argv[]) {
                                    waitpid(n2, NULL, 0);
                               }
                          }
-                    }
+                    } // end of command handling
 
+                    // read the result from the file
                     file = open(fileName, O_RDONLY);
                     read(file, pipeBuffer, BUFFER_SIZE);
                     bufferLength = strlen(pipeBuffer);
@@ -319,6 +349,7 @@ int main(int argc, char* argv[]) {
                     close(file);
                     remove(fileName);
 
+                    // send the result to the client
                     addHeader2Message(pipeBuffer, strlen(pipeBuffer), COMMAND_LINE_RESULT);
                     write(sc, pipeBuffer, 8);// send the header first, to inform the client about the length of the message
                     int sent = 8;
@@ -328,23 +359,24 @@ int main(int argc, char* argv[]) {
                          char temp[wsize1];
                          memccpy(temp, pipeBuffer + sent, wsize1, wsize1);
                          temp[wsize1] = '\0';
-                         write(sc, temp, wsize1);
+                         write(sc, temp, wsize1); // send the message in chunks of wsize
                          sent += wsize1;
-                    }
-               }
+                    } // end of sending the result to the client
+               } // end of child process loop
 
                // add here clients to be removed
                int file = open(CLIENT_REMOVE_FILE_NAME, O_RDWR | O_CREAT, 0666);
                dprintf(file, "%d\n", clientsID[childIndex]);
                close(file);
 
+               // close the pipes
                close(cs);
                close(sc);
                unlink(scPipeName);
                unlink(csPipeName);
                return 0; // end the child
-          }
-     }
+          } // end of child process
+     } // end of server loop
 
      mq_close(mq);
      return 0;
