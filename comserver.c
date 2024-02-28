@@ -368,7 +368,8 @@ int main(int argc, char* argv[]) {
                } // end of child process loop
 
                // add here clients to be removed
-               int file = open(CLIENT_REMOVE_FILE_NAME, O_RDWR | O_CREAT, 0666);
+               int file = open(CLIENT_REMOVE_FILE_NAME, O_RDWR | O_CREAT | O_APPEND, 0666);
+               lseek(file, 0, SEEK_END);
                dprintf(file, "%d\n", clientsID[childIndex]);
                close(file);
 
