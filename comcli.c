@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <sys/msg.h>
+#include <time.h>
 #include "constant.h"
 
 char csPipeName[NAME_SIZE], scPipeName[NAME_SIZE];
@@ -149,7 +150,8 @@ int main(int argc, char* argv[]) {
           printf("Connection is not succesfully established. Server got wrong id. Servers client id: %s, clients id: %d\n", pipeBuffer, clientID);
           return 0;
      }
-
+     struct timespec start, end;
+     clock_gettime(CLOCK_MONOTONIC, &start);
      // if batch option is specified
      int batchFile;
      char* batchLine;
@@ -201,7 +203,6 @@ int main(int argc, char* argv[]) {
           }
           removeHeaderFromMessage(pipeBuffer, &bufferLength, &bufferType);
           trimString(pipeBuffer);
-
           printf("Following command is executed: %s\n", command);
           if (bufferType != COMMAND_LINE_RESULT) {
                printf("Server returned wrong type of message. Expected: %d, got: %d\n", COMMAND_LINE_RESULT, bufferType);
@@ -210,6 +211,10 @@ int main(int argc, char* argv[]) {
 
           printf("%s\n", pipeBuffer);
      }
+     clock_gettime(CLOCK_MONOTONIC, &end);
+     float elapsedTime = (float)(end.tv_sec- start.tv_sec + (end.tv_nsec-start.tv_nsec)/1000000000.0);
+     if(elapsedTime > 0)
+     	printf("Elapsed time: %f\n",elapsedTime);
 
      close(sc);
      close(cs);
