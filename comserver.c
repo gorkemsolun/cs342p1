@@ -116,7 +116,7 @@ int main(int argc, char* argv[]) {
           printf("Received connection request.\n");
           printf("%s\n", msgBuffer);
 
-          int clientRemoveFile = open("clientsToRemove.txt", O_RDONLY);
+          int clientRemoveFile = open(CLIENT_REMOVE_FILE_NAME, O_RDONLY);
           if (clientRemoveFile != -1) {
                char clientToRemove[NAME_SIZE];
                int clientIDToRemove;
@@ -131,7 +131,7 @@ int main(int argc, char* argv[]) {
                          }
                     }
                }
-               remove("clientsToRemove.txt");
+               remove(CLIENT_REMOVE_FILE_NAME);
           }
 
           if (currentChildrenCount == MAX_CLIENT_SIZE) {
@@ -243,7 +243,7 @@ int main(int argc, char* argv[]) {
                          int nn = fork();
 
                          if (nn == 0) { // grandchild
-                              dup2(file, STDOUT_FILENO); // redirect output
+                              dup2(file, STDOUT_FILENO);
                               execvp(args[0], args);
                          }
 
@@ -334,7 +334,7 @@ int main(int argc, char* argv[]) {
                }
 
                // add here clients to be removed
-               int file = open("clientsToRemove.txt", O_RDWR | O_CREAT, 0666);
+               int file = open(CLIENT_REMOVE_FILE_NAME, O_RDWR | O_CREAT, 0666);
                dprintf(file, "%d\n", clientsID[childIndex]);
                close(file);
 

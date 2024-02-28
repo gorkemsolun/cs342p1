@@ -10,6 +10,7 @@ Murat Çağrı Kara 22102505
 #define MAX_ARGS_LENGTH 8
 #define BUFFER_SIZE 65536
 #define MAX_CLIENT_SIZE 5
+#define CLIENT_REMOVE_FILE_NAME "clientsToRemove.txt"
 
 
 // Message types
