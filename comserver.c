@@ -50,6 +50,31 @@ void signal_handler(int sig) {
      }
 }
 
+void addHeader2Message(char* message, int length, int type) {
+     memmove(message + 8, message, length); // shift the message to the right by 8
+     message[3] = length >> 24;
+     message[2] = length >> 16;
+     message[1] = length >> 8;
+     message[0] = length;
+     message[4] = type; // last 3 bytes are padding
+}
+
+int overflowCheck4Header(int value) {
+     if (value < 0) {
+          value += 256;
+     }
+     return value;
+}
+
+void removeHeaderFromMessage(char* message, int* length, int* type) {
+     *length = overflowCheck4Header(message[0]) + overflowCheck4Header(message[1] << 8)
+          + overflowCheck4Header(message[2] << 16) + overflowCheck4Header(message[3] << 24);
+     *type = message[4];
+
+     memmove(message, message + 8, *length);
+     message[*length] = '\0';
+}
+
 int main(int argc, char* argv[]) {
      if (argc != 2) {
           printf("Please provide proper amount of arguments.\n");
@@ -65,6 +90,7 @@ int main(int argc, char* argv[]) {
      mq_getattr(mq, &attr);
      int MSG_SIZE = attr.mq_msgsize;
      char msgBuffer[MSG_SIZE];
+     int bufferLength, bufferType;
 
      serverID = getpid();
      printf("Comserver(%d) is started. Connect to it via clients. Message queue name is %s.\n", serverID, mqName);
@@ -72,20 +98,34 @@ int main(int argc, char* argv[]) {
      signal(SIGTERM, signal_handler);
 
      while (1) {
-          // connection should be refused if children count > 0;
-          if (currentChildrenCount == MAX_CLIENT_SIZE) {
-               sleep(30);
-               printf("Server is full, clients cannot connect.\n");
+          mq_receive(mq, msgBuffer, MSG_SIZE, NULL);
+          removeHeaderFromMessage(msgBuffer, &bufferLength, &bufferType);
+          if (bufferType != CONNECTION_REQUEST) {
+               printf("Received message is not a connection request.\n");
                continue;
+          }
+          printf("Received connection request.\n");
+          printf("%s\n", msgBuffer);
+
+          if (currentChildrenCount == MAX_CLIENT_SIZE) {
+               sprintf(msgBuffer, "Server(%d) is full, clients cannot connect.", serverID);
+               addHeader2Message(msgBuffer, strlen(msgBuffer), CONNECTION_REPLY_FAIL);
+               mq_send(mq, msgBuffer, MSG_SIZE, 0);
+               printf("Server is full, clients cannot connect.\n");
+               sleep(30);
+               continue;
+          } else {
+               sprintf(msgBuffer, "Connection established with %d.", serverID);
+               addHeader2Message(msgBuffer, strlen(msgBuffer), CONNECTION_REPLY_SUCCESS);
+               mq_send(mq, msgBuffer, MSG_SIZE, 0);
           }
 
           mq_receive(mq, msgBuffer, MSG_SIZE, NULL);
-          printf("%s\n", msgBuffer);
-
-          sprintf(msgBuffer, "Connection established with %d.", serverID);
-          mq_send(mq, msgBuffer, MSG_SIZE, 0);
-
-          mq_receive(mq, msgBuffer, MSG_SIZE, NULL);
+          removeHeaderFromMessage(msgBuffer, &bufferLength, &bufferType);
+          if (bufferType != CONNECTION_REGISTER) {
+               printf("Received message is not a connection register.\n");
+               continue;
+          }
 
           char* token = strtok(msgBuffer, " ");
           int i = 0;

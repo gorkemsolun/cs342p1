@@ -37,6 +37,32 @@ void signal_handler(int sig) {
      }
 }
 
+void addHeader2Message(char* message, int length, int type) {
+     memmove(message + 8, message, length); // shift the message to the right by 8
+     memset(message, 0, 8); // fill the first 8 bytes with 0
+     message[3] = length >> 24;
+     message[2] = length >> 16;
+     message[1] = length >> 8;
+     message[0] = length;
+     message[4] = type; // last 3 bytes are padding
+}
+
+int overflowCheck4Header(int value) {
+     if (value < 0) {
+          value += 256;
+     }
+     return value;
+}
+
+void removeHeaderFromMessage(char* message, int* length, int* type) {
+     *length = overflowCheck4Header(message[0]) + overflowCheck4Header(message[1] << 8)
+          + overflowCheck4Header(message[2] << 16) + overflowCheck4Header(message[3] << 24);
+     *type = message[4];
+
+     memmove(message, message + 8, *length);
+     message[*length] = '\0';
+}
+
 int main(int argc, char* argv[]) {
      if (argc != 6 && argc != 4 && argc != 2) {
           printf("Please provide proper amount of arguments.\n");
@@ -80,14 +106,22 @@ int main(int argc, char* argv[]) {
      mq_getattr(mq, &attr);
      int MSG_SIZE = attr.mq_msgsize;
      char msgBuffer[MSG_SIZE];
+     int bufferLength, bufferType;
 
      int clientID = getpid();
 
      sprintf(msgBuffer, "Connection request from %d.", clientID);
+     addHeader2Message(msgBuffer, strlen(msgBuffer), CONNECTION_REQUEST);
      mq_send(mq, msgBuffer, MSG_SIZE, 0);
 
      mq_receive(mq, msgBuffer, MSG_SIZE, NULL);
-     printf("%s\n", msgBuffer);
+     removeHeaderFromMessage(msgBuffer, &bufferLength, &bufferType);
+     if (bufferType == CONNECTION_REPLY_FAIL) {
+          printf("Connection is not succesfully established. Server is full.\n");
+          printf("%s\n", msgBuffer);
+          return 0;
+     }
+     printf("Connection is succesfully established.\n%s\n", msgBuffer);
 
      //creation of pipes
      char pipeBuffer[BUFFER_SIZE], command[BUFFER_SIZE];
@@ -98,6 +132,7 @@ int main(int argc, char* argv[]) {
      sc = mkfifo(scPipeName, 0666);
 
      sprintf(msgBuffer, "%d %s %s %d", clientID, csPipeName, scPipeName, wsize);
+     addHeader2Message(msgBuffer, strlen(msgBuffer), CONNECTION_REGISTER);
      mq_send(mq, msgBuffer, MSG_SIZE, 0);
 
      sc = open(scPipeName, O_RDONLY);
