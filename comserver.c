@@ -205,7 +205,7 @@ int main(int argc, char* argv[]) {
                     read(cs, pipeBuffer, BUFFER_SIZE);
                     removeHeaderFromMessage(pipeBuffer, &bufferLength, &bufferType);
                     trimString(pipeBuffer);
-                    printf("Command given by %d is %s\n", clientID, pipeBuffer);
+                    printf("Command given by %d is %s(code %d)\n", clientID, pipeBuffer, bufferType);
 
                     if (bufferType == QUIT_REQUEST || bufferType == QUIT_ALL_REQUEST) { // quits handled here
 
