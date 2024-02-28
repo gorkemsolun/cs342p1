@@ -128,7 +128,6 @@ int main(int argc, char* argv[]) {
 
      sprintf(csPipeName, "cs%d", clientID);
      sprintf(scPipeName, "sc%d", clientID);
-     wsize = 4192;
      cs = mkfifo(csPipeName, 0666);
      sc = mkfifo(scPipeName, 0666);
 

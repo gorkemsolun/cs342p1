@@ -203,7 +203,6 @@ int main(int argc, char* argv[]) {
                while (1) {
                     int file = open(fileName, O_RDWR | O_CREAT, 0666);
                     read(cs, pipeBuffer, BUFFER_SIZE);
-                    printf("Command type is %d\n", bufferType);
                     removeHeaderFromMessage(pipeBuffer, &bufferLength, &bufferType);
                     trimString(pipeBuffer);
                     printf("Command given by %d is %s\n", clientID, pipeBuffer);
@@ -311,20 +310,11 @@ int main(int argc, char* argv[]) {
                     file = open(fileName, O_RDONLY);
                     read(file, pipeBuffer, BUFFER_SIZE);
                     bufferLength = strlen(pipeBuffer);
-                    printf("Output length: %d\n", bufferLength);
                     pipeBuffer[bufferLength] = '\0';
                     close(file);
                     remove(fileName);
 
                     addHeader2Message(pipeBuffer, strlen(pipeBuffer), COMMAND_LINE_RESULT);
-                    printf("Message%d", pipeBuffer[0]);
-                    printf("Message%d", pipeBuffer[1]);
-                    printf("Message%d", pipeBuffer[2]);
-                    printf("Message%d", pipeBuffer[3]);
-                    printf("Message%d", pipeBuffer[4]);
-                    printf("Message%d", pipeBuffer[5]);
-                    printf("Message%d", pipeBuffer[6]);
-                    printf("Message%d\n", pipeBuffer[7]);
                     write(sc, pipeBuffer, 8);// send the header first, to inform the client about the length of the message
                     int sent = 8;
                     while (bufferLength > 0) {
