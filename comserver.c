@@ -52,6 +52,7 @@ void signal_handler(int sig) {
 
 void addHeader2Message(char* message, int length, int type) {
      memmove(message + 8, message, length); // shift the message to the right by 8
+     memset(message, 0, 8);
      message[3] = length >> 24;
      message[2] = length >> 16;
      message[1] = length >> 8;
@@ -181,20 +182,36 @@ int main(int argc, char* argv[]) {
                while (1) {
                     int file = open(fileName, O_RDWR | O_CREAT, 0666);
                     read(cs, pipeBuffer, BUFFER_SIZE);
+                    printf("Command type is %d\n", bufferType);
                     removeHeaderFromMessage(pipeBuffer, &bufferLength, &bufferType);
                     trimString(pipeBuffer);
                     printf("Command given by %d is %s\n", clientID, pipeBuffer);
 
-                    if (strcmp(pipeBuffer, "quitall") == 0) { // killing all
-                         kill(serverID, SIGTERM);
-                         exit(0);
-                    }
+                    if (bufferType == QUIT_REQUEST || bufferType == QUIT_ALL_REQUEST) { // quits handled here
+                         sprintf(pipeBuffer, "Server is terminating the connection with you(%d).", clientID);
 
-                    if (strcmp(pipeBuffer, "quit") == 0) { // ending this child
-                         close(file);
-                         remove(fileName);
-                         printf("Client %d quits.\n", clientID);
-                         break;
+                         // addHeader2Message(pipeBuffer, strlen(pipeBuffer), QUIT_REPLY);
+                         // int remaining = strlen(pipeBuffer);
+                         // int offset = 0;
+                         // while (remaining > 0) {
+                         //      int bytesToSend = (remaining < wsize) ? remaining : wsize;
+                         //      write(sc, pipeBuffer + offset, bytesToSend);
+                         //      offset += bytesToSend;
+                         //      remaining -= bytesToSend;
+                         // }
+
+
+                         if (bufferType == QUIT_ALL_REQUEST) { // killing all
+                              kill(serverID, SIGTERM);
+                              exit(0);
+                         }
+
+                         if (bufferType == QUIT_REQUEST) { // ending this child
+                              close(file);
+                              remove(fileName);
+                              printf("Client %d quits.\n", clientID);
+                              break;
+                         }
                     }
 
                     char* isCompoundCommand = strchr(pipeBuffer, '|');

@@ -176,21 +176,37 @@ int main(int argc, char* argv[]) {
                }
           }
 
-          strcpy(command, pipeBuffer);
-          addHeader2Message(pipeBuffer, strlen(pipeBuffer), COMMAND_LINE_REQUEST);
-          write(cs, pipeBuffer, BUFFER_SIZE);
           trimString(pipeBuffer);
+          strcpy(command, pipeBuffer);
 
-          if (strcmp(pipeBuffer, "quit") == 0) {
+          if (strcmp(command, "quit") == 0) {
+               addHeader2Message(pipeBuffer, strlen(pipeBuffer), QUIT_REQUEST);
+          } else if (strcmp(command, "quitall") == 0) {
+               addHeader2Message(pipeBuffer, strlen(pipeBuffer), QUIT_ALL_REQUEST);
+          } else {
+               addHeader2Message(pipeBuffer, strlen(pipeBuffer), COMMAND_LINE);
+          }
+
+          write(cs, pipeBuffer, BUFFER_SIZE);
+          printf("Following command is going to be executed: %s\n", command);
+
+          if (strcmp(command, "quit") == 0) {
+               printf("Following command is executed: %s\n", command);
                break;
           }
+
           for (int i = sizeof(pipeBuffer); i > 0; i -= wsize) {
                read(sc, pipeBuffer, wsize);
           }
           removeHeaderFromMessage(pipeBuffer, &bufferLength, &bufferType);
-
           trimString(pipeBuffer);
+
           printf("Following command is executed: %s\n", command);
+          if (bufferType != COMMAND_LINE_RESULT) {
+               printf("Server returned wrong type of message. Expected: %d, got: %d\n", COMMAND_LINE_RESULT, bufferType);
+               return 0;
+          }
+
           printf("%s\n", pipeBuffer);
      }
 
