@@ -55,8 +55,8 @@ int overflowCheck4Header(int value) {
 }
 
 void removeHeaderFromMessage(char* message, int* length, int* type) {
-     *length = overflowCheck4Header(message[0]) + overflowCheck4Header(message[1] << 8)
-          + overflowCheck4Header(message[2] << 16) + overflowCheck4Header(message[3] << 24);
+     *length = overflowCheck4Header(message[0]) + (overflowCheck4Header(message[1]) << 8)
+          + (overflowCheck4Header(message[2]) << 16) + (overflowCheck4Header(message[3]) << 24);
      *type = message[4];
 
      memmove(message, message + 8, *length);
@@ -138,9 +138,9 @@ int main(int argc, char* argv[]) {
 
      sc = open(scPipeName, O_RDONLY);
      cs = open(csPipeName, O_WRONLY);
-     for (int i = sizeof(pipeBuffer); i > 0; i -= wsize) {
-          read(sc, pipeBuffer, wsize);
-     }
+
+     read(sc, pipeBuffer, MSG_SIZE);
+
      removeHeaderFromMessage(pipeBuffer, &bufferLength, &bufferType);
 
      if (atoi(pipeBuffer) == clientID) {
@@ -196,19 +196,39 @@ int main(int argc, char* argv[]) {
                break;
           }
 
-          for (int i = sizeof(pipeBuffer); i > 0; i -= wsize) {
-               read(sc, pipeBuffer, wsize);
-          }
-          removeHeaderFromMessage(pipeBuffer, &bufferLength, &bufferType);
-          trimString(pipeBuffer);
-
+          read(sc, pipeBuffer, 8);
           printf("Following command is executed: %s\n", command);
-          if (bufferType != COMMAND_LINE_RESULT) {
+          bufferLength = overflowCheck4Header(pipeBuffer[0]) + (overflowCheck4Header(pipeBuffer[1]) << 8)
+               + (overflowCheck4Header(pipeBuffer[2]) << 16) + (overflowCheck4Header(pipeBuffer[3]) << 24);
+          bufferType = pipeBuffer[4];
+          printf("Buffer length: %d\n", bufferLength);
+
+          if (bufferType != COMMAND_LINE_RESULT) { // this may be redundant
                printf("Server returned wrong type of message. Expected: %d, got: %d\n", COMMAND_LINE_RESULT, bufferType);
-               return 0;
+               return
+                    0;
           }
 
-          printf("%s\n", pipeBuffer);
+          if (bufferLength >= BUFFER_SIZE - 8 || bufferLength < 0) {
+               printf("Server returned too long message. Expected: %d, got: %d\n", BUFFER_SIZE - 8, bufferLength);
+               printf("Length: %d\n", bufferLength);
+               printf("This may break the program.\n");
+               printf("This may break the program.\n");
+               printf("This may break the program.\n");
+          }
+
+          while (bufferLength > 0) {
+               int wsize1 = bufferLength > wsize ? wsize : bufferLength;
+               if (wsize1 == 0) {
+                    break;
+               }
+               char temp[wsize1];
+               read(sc, temp, wsize1);
+               temp[wsize1] = '\0';
+               printf("%s", temp);
+               bufferLength -= wsize1;
+          }
+          printf("\n");
      }
 
      close(sc);

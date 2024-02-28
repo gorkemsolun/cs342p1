@@ -19,11 +19,9 @@ int serverID;
 
 void trimString(char* str) {
      int end = strlen(str) - 1;
-
      while (str[end] == ' ' || str[end] == '\t' || str[end] == '\n') {
           end--;
      }
-
      str[end + 1] = '\0';
 }
 
@@ -68,8 +66,8 @@ int overflowCheck4Header(int value) {
 }
 
 void removeHeaderFromMessage(char* message, int* length, int* type) {
-     *length = overflowCheck4Header(message[0]) + overflowCheck4Header(message[1] << 8)
-          + overflowCheck4Header(message[2] << 16) + overflowCheck4Header(message[3] << 24);
+     *length = overflowCheck4Header(message[0]) + (overflowCheck4Header(message[1]) << 8)
+          + (overflowCheck4Header(message[2]) << 16) + (overflowCheck4Header(message[3]) << 24);
      *type = message[4];
 
      memmove(message, message + 8, *length);
@@ -130,7 +128,7 @@ int main(int argc, char* argv[]) {
                }
                remove("clientsToRemove.txt");
           }
-       
+
           if (currentChildrenCount == MAX_CLIENT_SIZE) {
                sprintf(msgBuffer, "Server(%d) is full, clients cannot connect.", serverID);
                addHeader2Message(msgBuffer, strlen(msgBuffer), CONNECTION_REPLY_FAIL);
@@ -171,6 +169,8 @@ int main(int argc, char* argv[]) {
           }
 
           printf("Received pipe names, clients ID(%d), and wsize(%d).\n", clientID, wsize);
+          printf("Please be careful while entering commands, \nit may break the system if they are WRONG.\n");
+          printf("Please be careful while entering commands long output, \nit may break the system if the buffer SIZE is NOT ENOUGH.\n");
 
           int n = fork();
 
@@ -198,9 +198,7 @@ int main(int argc, char* argv[]) {
                char pipeBuffer[BUFFER_SIZE];
                sprintf(pipeBuffer, "%d", clientID);
                addHeader2Message(pipeBuffer, strlen(pipeBuffer), CONNECTION_REPLY_SUCCESS);
-               for (int i = sizeof(pipeBuffer); i > 0; i -= wsize) {
-                    write(sc, pipeBuffer, wsize);
-               }
+               write(sc, pipeBuffer, MSG_SIZE); // this is just to check if the connection is successful
 
                while (1) {
                     int file = open(fileName, O_RDWR | O_CREAT, 0666);
@@ -211,18 +209,6 @@ int main(int argc, char* argv[]) {
                     printf("Command given by %d is %s\n", clientID, pipeBuffer);
 
                     if (bufferType == QUIT_REQUEST || bufferType == QUIT_ALL_REQUEST) { // quits handled here
-                         // sprintf(pipeBuffer, "Server is terminating the connection with you(%d).", clientID);
-
-                         // addHeader2Message(pipeBuffer, strlen(pipeBuffer), QUIT_REPLY);
-                         // int remaining = strlen(pipeBuffer);
-                         // int offset = 0;
-                         // while (remaining > 0) {
-                         //      int bytesToSend = (remaining < wsize) ? remaining : wsize;
-                         //      write(sc, pipeBuffer + offset, bytesToSend);
-                         //      offset += bytesToSend;
-                         //      remaining -= bytesToSend;
-                         // }
-
 
                          if (bufferType == QUIT_ALL_REQUEST) { // killing all
                               kill(serverID, SIGTERM);
@@ -323,14 +309,32 @@ int main(int argc, char* argv[]) {
                     }
 
                     file = open(fileName, O_RDONLY);
-                    memset(pipeBuffer, 0, BUFFER_SIZE);
                     read(file, pipeBuffer, BUFFER_SIZE);
-
+                    bufferLength = strlen(pipeBuffer);
+                    printf("Output length: %d\n", bufferLength);
+                    pipeBuffer[bufferLength] = '\0';
                     close(file);
                     remove(fileName);
+
                     addHeader2Message(pipeBuffer, strlen(pipeBuffer), COMMAND_LINE_RESULT);
-                    for (int i = sizeof(pipeBuffer); i > 0; i -= wsize) {
-                         write(sc, pipeBuffer, wsize);
+                    printf("Message%d", pipeBuffer[0]);
+                    printf("Message%d", pipeBuffer[1]);
+                    printf("Message%d", pipeBuffer[2]);
+                    printf("Message%d", pipeBuffer[3]);
+                    printf("Message%d", pipeBuffer[4]);
+                    printf("Message%d", pipeBuffer[5]);
+                    printf("Message%d", pipeBuffer[6]);
+                    printf("Message%d\n", pipeBuffer[7]);
+                    write(sc, pipeBuffer, 8);// send the header first, to inform the client about the length of the message
+                    int sent = 8;
+                    while (bufferLength > 0) {
+                         int wsize1 = bufferLength > wsize ? wsize : bufferLength;
+                         bufferLength -= wsize1;
+                         char temp[wsize1];
+                         memccpy(temp, pipeBuffer + sent, wsize1, wsize1);
+                         temp[wsize1] = '\0';
+                         write(sc, temp, wsize1);
+                         sent += wsize1;
                     }
                }
 
@@ -344,8 +348,8 @@ int main(int argc, char* argv[]) {
                unlink(scPipeName);
                unlink(csPipeName);
                return 0; // end the child
-               }
           }
+     }
 
      mq_close(mq);
      return 0;
